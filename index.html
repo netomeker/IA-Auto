@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Central IA - interface premium com chat e produtividade." />
+    <title>Central IA</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #05070b;
+      }
+
+      #root {
+        min-height: 100vh;
+      }
+
+      .boot-fallback {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 14% 12%, rgba(168, 85, 247, 0.25), transparent 35%),
+          radial-gradient(circle at 88% 14%, rgba(56, 189, 248, 0.18), transparent 38%),
+          linear-gradient(145deg, #06030d 0%, #090511 52%, #04020a 100%);
+      }
+
+      .boot-fallback.hidden {
+        display: none;
+      }
+
+      .boot-card {
+        width: min(640px, 100%);
+        border: 1px solid rgba(196, 181, 253, 0.25);
+        border-radius: 16px;
+        padding: 20px;
+        color: #ece8ff;
+        background: linear-gradient(160deg, rgba(21, 12, 38, 0.9), rgba(10, 8, 22, 0.92));
+        backdrop-filter: blur(8px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        font-family: "Segoe UI", sans-serif;
+      }
+
+      .boot-title {
+        margin: 0 0 8px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .boot-text {
+        margin: 0;
+        font-size: 14px;
+        color: #b8b2d6;
+      }
+
+      .boot-code {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 139, 250, 0.28);
+        background: rgba(7, 6, 16, 0.78);
+        font: 12px Consolas, monospace;
+        white-space: pre-wrap;
+        color: #ddd4fe;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="bootFallback" class="boot-fallback">
+      <div class="boot-card">
+        <h1 id="bootTitle" class="boot-title">Carregando Central IA...</h1>
+        <p id="bootText" class="boot-text">Inicializando interface.</p>
+        <div id="bootCode" class="boot-code">Aguardando...</div>
+      </div>
+    </div>
+
+    <script type="module">
+      const fallbackEl = document.getElementById("bootFallback");
+      const titleEl = document.getElementById("bootTitle");
+      const textEl = document.getElementById("bootText");
+      const codeEl = document.getElementById("bootCode");
+
+      function setBoot(title, text, code) {
+        if (titleEl) titleEl.textContent = title;
+        if (textEl) textEl.textContent = text;
+        if (codeEl) codeEl.textContent = code;
+      }
+
+      function hideBoot() {
+        if (fallbackEl) fallbackEl.classList.add("hidden");
+      }
+
+      function wait(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      async function loadConfig() {
+        await new Promise((resolve) => {
+          const script = document.createElement("script");
+          script.src = "./config.js";
+          script.onload = () => resolve(null);
+          script.onerror = () => resolve(null);
+          document.head.appendChild(script);
+        });
+
+        window.CENTRAL_IA_CONFIG = window.CENTRAL_IA_CONFIG || { apiBaseUrl: "", apiEndpoint: "" };
+      }
+
+      function addModuleScript(src) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.type = "module";
+          script.src = src;
+          script.onload = () => resolve(null);
+          script.onerror = () => reject(new Error(`Falha ao carregar: ${src}`));
+          document.body.appendChild(script);
+        });
+      }
+
+      async function bootFromDist() {
+        const candidates = [
+          { manifest: "./.vite/manifest.json", assetsPrefix: "./" },
+          { manifest: "./dist/.vite/manifest.json", assetsPrefix: "./dist/" }
+        ];
+
+        let manifest = null;
+        let assetsPrefix = "./";
+
+        for (const candidate of candidates) {
+          try {
+            const response = await fetch(candidate.manifest, { cache: "no-store" });
+            if (!response.ok) {
+              continue;
+            }
+            manifest = await response.json();
+            assetsPrefix = candidate.assetsPrefix;
+            break;
+          } catch (_error) {
+            // Continua para proximo candidato.
+          }
+        }
+
+        if (!manifest) {
+          throw new Error("Manifest de produção não encontrado.");
+        }
+
+        const entry = manifest["src/main.tsx"];
+        if (!entry?.file) {
+          throw new Error("Entry src/main.tsx ausente no manifest.");
+        }
+
+        const cssFiles = Array.isArray(entry.css) ? entry.css : [];
+        cssFiles.forEach((css) => {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = `${assetsPrefix}${css}`;
+          document.head.appendChild(link);
+        });
+
+        await addModuleScript(`${assetsPrefix}${entry.file}`);
+      }
+
+      async function boot() {
+        await loadConfig();
+        setBoot("Carregando app", "Tentando modo desenvolvimento...", "import('/src/main.tsx')");
+
+        try {
+          await import("/src/main.tsx");
+          await wait(60);
+          hideBoot();
+          return;
+        } catch (error) {
+          setBoot(
+            "Fallback de produção",
+            "Entrada dev falhou. Tentando bundle gerado...",
+            String(error?.message || error)
+          );
+        }
+
+        try {
+          await bootFromDist();
+          await wait(60);
+          hideBoot();
+          return;
+        } catch (error) {
+          setBoot(
+            "Não foi possível iniciar",
+            "Faça build e rode o servidor.",
+            `${String(error?.message || error)}\n\nComandos:\n1) npm run build\n2) npm start\n3) abra http://127.0.0.1:3000`
+          );
+        }
+      }
+
+      boot();
+    </script>
+  </body>
+</html>

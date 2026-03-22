@@ -1,0 +1,14 @@
+﻿services:
+  - type: web
+    name: central-ia-proxy
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_MODEL
+        value: deepseek-ai/deepseek-v3.2

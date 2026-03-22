@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+*.log
+*.pid
+public_url.txt
+localtunnel.log
+public_tunnel.log
+tunnel_runner.out.log
+tunnel_runner.err.log
+server.out.log
+server.err.log
+server.public.out.log
+server.public.err.log
