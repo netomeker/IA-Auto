@@ -129,6 +129,33 @@ body::after {
   animation: auroraDrift 22s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  body,
+  body::after {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    animation: none;
+    background-image:
+      radial-gradient(circle at 18% 10%, rgba(88, 74, 225, 0.17), transparent 32%),
+      radial-gradient(circle at 82% 8%, rgba(44, 214, 255, 0.1), transparent 32%),
+      linear-gradient(150deg, #03040a 0%, #060714 54%, #03030b 100%);
+  }
+
+  body::before {
+    opacity: 0.03;
+    background-size: 84px 84px;
+  }
+
+  body::after {
+    opacity: 0.08;
+    animation: none;
+  }
+}
+
 html.theme-light body {
   background: #f5f8fb;
 }

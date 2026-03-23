@@ -70,15 +70,21 @@ export const GalaxyCanvas = memo(function GalaxyCanvas({
     let dpr = 1;
     let frame = 0;
     let lastTime = 0;
+    let pageVisible = typeof document === "undefined" ? true : !document.hidden;
 
     let staticStars: StaticStar[] = [];
     let twinkleStars: TwinkleStar[] = [];
     let shootingStars: ShootingStar[] = [];
 
-    const staticCount = reducedMotion ? (mobile ? 45 : 70) : mobile ? 90 : 150;
-    const twinkleCount = reducedMotion ? (mobile ? 8 : 12) : mobile ? 14 : 24;
-    const shootingCount = reducedMotion ? (mobile ? 2 : 3) : mobile ? 4 : 6;
-    const targetFps = reducedMotion ? 18 : mobile ? 24 : 30;
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const lowCpu = (nav.hardwareConcurrency || 8) <= 4;
+    const lowMemory = Number(nav.deviceMemory || 8) <= 4;
+    const lowPowerDevice = mobile || lowCpu || lowMemory;
+
+    const staticCount = reducedMotion ? (mobile ? 22 : 34) : lowPowerDevice ? (mobile ? 34 : 58) : mobile ? 56 : 110;
+    const twinkleCount = reducedMotion ? (mobile ? 5 : 8) : lowPowerDevice ? (mobile ? 7 : 11) : mobile ? 10 : 18;
+    const shootingCount = reducedMotion ? 0 : lowPowerDevice ? (mobile ? 1 : 2) : mobile ? 2 : 4;
+    const targetFps = reducedMotion ? 14 : lowPowerDevice ? 18 : mobile ? 22 : 30;
     const frameStep = 1000 / targetFps;
 
     const resetShooter = (star: ShootingStar, immediate = false) => {
@@ -201,7 +207,7 @@ export const GalaxyCanvas = memo(function GalaxyCanvas({
     const setupCanvas = () => {
       const nextWidth = Math.max(1, window.innerWidth);
       const nextHeight = Math.max(1, window.innerHeight);
-      const nextDpr = Math.min(mobile ? 1.25 : 1.55, window.devicePixelRatio || 1);
+      const nextDpr = Math.min(lowPowerDevice ? 1 : mobile ? 1.12 : 1.45, window.devicePixelRatio || 1);
 
       width = nextWidth;
       height = nextHeight;
@@ -226,6 +232,7 @@ export const GalaxyCanvas = memo(function GalaxyCanvas({
 
     const drawFrame = (time: number) => {
       frame = window.requestAnimationFrame(drawFrame);
+      if (!pageVisible) return;
       if (lastTime && time - lastTime < frameStep) return;
 
       const delta = lastTime ? Math.min((time - lastTime) / 1000, 0.06) : 0.016;
@@ -247,7 +254,7 @@ export const GalaxyCanvas = memo(function GalaxyCanvas({
         ctx.fill();
       }
 
-      if (!reducedMotion) {
+      if (!reducedMotion && shootingCount > 0) {
         for (const star of shootingStars) {
           star.age += delta;
           if (star.age < star.wait) continue;
@@ -284,16 +291,24 @@ export const GalaxyCanvas = memo(function GalaxyCanvas({
       ctx.globalAlpha = 1;
     };
 
+    const onVisibilityChange = () => {
+      pageVisible = !document.hidden;
+      if (pageVisible) {
+        lastTime = 0;
+      }
+    };
+
     setupCanvas();
     frame = window.requestAnimationFrame(drawFrame);
     window.addEventListener("resize", setupCanvas, { passive: true });
+    document.addEventListener("visibilitychange", onVisibilityChange, { passive: true });
 
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", setupCanvas);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [mobile, reducedMotion]);
 
   return <canvas ref={canvasRef} className={cn("h-full w-full", className)} aria-hidden />;
 });
-

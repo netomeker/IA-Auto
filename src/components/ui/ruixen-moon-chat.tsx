@@ -29,7 +29,7 @@ import {
   useState
 } from "react";
 
-import { fetchWithApiFallback } from "@/lib/api-base";
+import { fetchWithApiFallback, probeApiHealth } from "@/lib/api-base";
 import { WORLD_LANGUAGES, WORLD_TAGS, normalizeSearch, type TagEntry } from "@/lib/code-taxonomy";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +66,14 @@ type ChatAttachment = {
   error?: string;
 };
 
+type HealthStatus = "checking" | "online" | "missing_key" | "offline";
+
+type HealthState = {
+  status: HealthStatus;
+  detail: string;
+  model: string;
+};
+
 type RuixenMoonChatProps = {
   title?: string;
   subtitle?: string;
@@ -95,7 +103,7 @@ const LANGUAGE_HINTS: Record<string, string> = {
   marketing: "Gere copy orientada a conversao."
 };
 
-const MODEL = "deepseek-ai/deepseek-v3.2";
+const DEFAULT_MODEL = "deepseek-ai/deepseek-v3.2";
 const MAX_HISTORY = 10;
 const MAX_ATTACHMENTS = 6;
 const MAX_ATTACHMENT_CHARS = 12000;
@@ -124,16 +132,47 @@ function makeId() {
   return `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
 }
 
+function resolveConfiguredModel() {
+  if (typeof window === "undefined") return DEFAULT_MODEL;
+  const cfgModel = String(window.CENTRAL_IA_CONFIG?.defaultModel || "").trim();
+  return cfgModel || DEFAULT_MODEL;
+}
+
+function errorTextFromUnknown(raw: unknown) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const jsonCandidate =
+    text.startsWith("{") && text.endsWith("}")
+      ? text
+      : text.includes("{") && text.includes("}")
+        ? text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)
+        : "";
+
+  try {
+    const parsed = JSON.parse(jsonCandidate || text);
+    if (parsed && typeof parsed.error === "string") return parsed.error;
+  } catch (_error) {
+    // Keep raw text fallback.
+  }
+  return text;
+}
+
 function friendlyError(raw: unknown) {
-  const text = String(raw || "");
-  if (/401|Unauthorized|Authentication failed/i.test(text)) {
-    return "Falha de autenticacao no backend da IA.";
+  const text = errorTextFromUnknown(raw);
+  if (/NVIDIA.?API.?KEY ausente|hasServerKey["']?\s*:\s*false|backend sem chave|missing api key/i.test(text)) {
+    return "Backend sem chave NVIDIA. No Netlify, adicione NVIDIA_API_KEY e publique novamente.";
+  }
+  if (/401|Unauthorized|Authentication failed|invalid api key/i.test(text)) {
+    return "Chave NVIDIA invalida ou expirada no backend.";
+  }
+  if (/429|rate limit|quota/i.test(text)) {
+    return "Limite de uso da IA atingido agora. Tente de novo em instantes.";
   }
   if (/404/i.test(text)) {
     return "Rota de IA nao encontrada no backend.";
   }
   if (/405/i.test(text)) {
-    return "Backend sem suporte para este metodo. Verifique /api/chat.";
+    return "Backend sem suporte para este metodo. Verifique a funcao /api/chat.";
   }
   if (/Failed to fetch|NetworkError|ECONNREFUSED|ERR_CONNECTION_REFUSED/i.test(text)) {
     return "Nao consegui conectar ao backend agora.";
@@ -220,6 +259,11 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
   const [builderSelectedTagKeys, setBuilderSelectedTagKeys] = useState<string[]>([]);
   const [builderGoal, setBuilderGoal] = useState("");
   const [showTagTutorial, setShowTagTutorial] = useState(false);
+  const [health, setHealth] = useState<HealthState>(() => ({
+    status: "checking",
+    detail: "Verificando backend...",
+    model: resolveConfiguredModel()
+  }));
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
@@ -276,6 +320,54 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
 
   const canSend = (inputValue.trim().length > 0 || attachments.length > 0) && !isSending;
 
+  const refreshHealth = useCallback(async () => {
+    const check = await probeApiHealth();
+    const configuredModel = resolveConfiguredModel();
+
+    if (!check.ok) {
+      const status = Number(check.status || 0);
+      const detail =
+        status === 404 || status === 405
+          ? "Rotas /api nao encontradas no deploy."
+          : "Conexao com backend indisponivel.";
+
+      setHealth({
+        status: "offline",
+        detail,
+        model: configuredModel
+      });
+      return;
+    }
+
+    const payload = (check.payload && typeof check.payload === "object" ? check.payload : {}) as Record<string, unknown>;
+    const hasServerKey = Boolean(payload.hasServerKey);
+    const currentModel = String(payload.model || configuredModel || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+
+    if (!hasServerKey) {
+      setHealth({
+        status: "missing_key",
+        detail: "NVIDIA_API_KEY ausente no backend Netlify.",
+        model: currentModel
+      });
+      return;
+    }
+
+    let baseLabel = "mesmo dominio";
+    try {
+      if (check.base) {
+        baseLabel = new URL(check.base).host;
+      }
+    } catch (_error) {
+      baseLabel = check.base || "mesmo dominio";
+    }
+
+    setHealth({
+      status: "online",
+      detail: `IA online via ${baseLabel}`,
+      model: currentModel
+    });
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mobileMedia = window.matchMedia("(max-width: 768px)");
@@ -307,6 +399,17 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
       motionMedia.removeListener(onMotionChange);
     };
   }, []);
+
+  useEffect(() => {
+    void refreshHealth();
+    const timer = window.setInterval(() => {
+      void refreshHealth();
+    }, 45000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [refreshHealth]);
 
   useEffect(() => {
     if (!builderActiveTag && WORLD_TAGS[0]?.key) {
@@ -423,7 +526,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
           body: JSON.stringify({
             message: finalPrompt,
             history,
-            model: MODEL,
+            model: health.model || resolveConfiguredModel(),
             temperature: 0.7,
             top_p: 0.95,
             max_tokens: 2048,
@@ -457,11 +560,12 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
               : item
           )
         );
+        void refreshHealth();
       } finally {
         setIsSending(false);
       }
     },
-    [attachments, contextProfile, history, isSending]
+    [attachments, contextProfile, health.model, history, isSending, refreshHealth]
   );
 
   const onSubmit = useCallback(
@@ -563,8 +667,8 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
       <div className="pointer-events-none fixed inset-0 z-[3] bg-[radial-gradient(circle_at_50%_14%,rgba(125,211,252,0.1),rgba(0,0,0,0)_36%)]" />
       <div className="pointer-events-none fixed inset-0 z-[4] bg-black/50" />
 
-      <div className="relative z-10 flex min-h-[100dvh] flex-col items-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
-        <header className="pt-10 text-center sm:pt-20">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))] sm:px-5">
+        <header className="pt-7 text-center sm:pt-10">
           <motion.h1
             className="text-3xl font-semibold tracking-tight text-white drop-shadow-[0_6px_22px_rgba(0,0,0,0.5)] sm:text-5xl"
             initial={{ opacity: 0, y: 12 }}
@@ -581,131 +685,157 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
           >
             {subtitle}
           </motion.p>
+          <motion.div
+            className={cn(
+              "mx-auto mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] backdrop-blur-xl sm:text-xs",
+              health.status === "online" &&
+                "border-emerald-300/35 bg-emerald-500/12 text-emerald-100",
+              health.status === "checking" &&
+                "border-cyan-300/30 bg-cyan-400/12 text-cyan-100",
+              health.status === "missing_key" &&
+                "border-amber-300/35 bg-amber-500/14 text-amber-100",
+              health.status === "offline" &&
+                "border-rose-300/35 bg-rose-500/14 text-rose-100"
+            )}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.12 }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-current/90" />
+            <span>{health.detail}</span>
+            <span className="text-[10px] uppercase tracking-wide text-white/60 sm:text-[11px]">
+              {health.model}
+            </span>
+          </motion.div>
         </header>
 
-        <main className="mt-4 flex w-full max-w-5xl flex-1 flex-col justify-end pb-[calc(env(safe-area-inset-bottom)+4.5rem)] sm:mt-6 sm:pb-[18vh]">
-          <AnimatePresence initial={false}>
-            {messages.length > 0 && (
-              <motion.div
-                ref={messagesRef}
-                className="mb-3 max-h-[30vh] space-y-3 overflow-y-auto px-1 sm:mb-4 sm:max-h-[36vh]"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-              >
-                {messages.map((message) => (
-                  <motion.div
-                    key={message.id}
-                    className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <div className="max-w-[88%]">
-                      <div
-                        className={cn(
-                          "rounded-2xl border px-3 py-2 text-sm leading-relaxed backdrop-blur-xl",
-                          message.role === "user"
-                            ? "border-cyan-300/35 bg-cyan-400/14 text-cyan-50"
-                            : "border-white/20 bg-white/[0.08] text-slate-100",
-                          message.error && "border-rose-300/35 bg-rose-500/15 text-rose-100"
-                        )}
-                      >
-                        {message.pending && !message.content ? <TypingDots /> : message.content}
-                      </div>
-                      <p className="mt-1 px-1 text-[11px] text-slate-400">
-                        {message.role === "user" ? "Voce" : "IA"} - {formatTime(message.createdAt)}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <form
-            onSubmit={onSubmit}
-            className="rounded-[20px] border border-white/20 bg-black/45 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.58)] backdrop-blur-2xl sm:rounded-2xl sm:p-4"
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(event) => {
-                void onFileChange(event);
-              }}
-            />
-            <Textarea
-              ref={textareaRef}
-              rows={1}
-              value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Descreva sua solicitacao..."
-              className="min-h-[76px] resize-none border-0 bg-transparent px-0 text-sm placeholder:text-slate-400/75 focus-visible:ring-0 sm:min-h-[88px] sm:text-base"
-            />
-            {attachments.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {attachments.map((file) => (
-                  <div
-                    key={file.id}
-                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/20 bg-white/[0.06] px-2.5 py-1 text-xs text-slate-200"
-                  >
-                    <FileText className="h-3.5 w-3.5 text-cyan-200" />
-                    <span className="max-w-[140px] truncate sm:max-w-[220px]">{file.name}</span>
-                    <span className="text-slate-400">{formatBytes(file.size)}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(file.id)}
-                      className="rounded-full p-0.5 text-slate-400 transition hover:bg-white/10 hover:text-slate-200"
-                      aria-label={`Remover ${file.name}`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-10 w-10 rounded-xl border border-white/15 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
-                aria-label="Anexar arquivo"
-                onClick={openFilePicker}
-              >
-                <Paperclip className="h-4 w-4" />
-              </Button>
-
-              <Button
-                type="submit"
-                disabled={!canSend}
-                size="icon"
-                className="h-10 w-10 rounded-xl border border-white/20 bg-gradient-to-r from-blue-500/55 to-violet-500/55 text-white shadow-[0_10px_26px_rgba(58,78,255,0.3)] hover:from-blue-500/70 hover:to-violet-500/70 disabled:opacity-45"
-                aria-label="Enviar mensagem"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
-
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:mt-5">
-            {QUICK_ACTIONS.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.id}
-                  type="button"
-                  onClick={() => handleQuickActionClick(action)}
-                  className="group inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/35 px-3 py-1.5 text-[11px] text-slate-100 backdrop-blur-xl transition hover:-translate-y-[1px] hover:border-cyan-300/45 hover:bg-cyan-300/12 sm:px-3.5 sm:py-2 sm:text-xs"
+        <main className="mt-4 flex w-full flex-1 flex-col pb-[calc(env(safe-area-inset-bottom)+0.6rem)] sm:mt-5 sm:pb-[1.1rem]">
+          <div className="mx-auto mt-auto w-full max-w-5xl">
+            <AnimatePresence initial={false}>
+              {messages.length > 0 && (
+                <motion.div
+                  ref={messagesRef}
+                  className="mb-3 max-h-[30vh] space-y-3 overflow-y-auto px-1 sm:mb-4 sm:max-h-[35vh]"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
                 >
-                  <Icon className="h-3.5 w-3.5 text-cyan-100/80 transition group-hover:text-cyan-100" />
-                  {action.label}
-                </button>
-              );
-            })}
+                  {messages.map((message) => (
+                    <motion.div
+                      key={message.id}
+                      className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18 }}
+                    >
+                      <div className="max-w-[92%] sm:max-w-[84%]">
+                        <div
+                          className={cn(
+                            "rounded-2xl border px-3 py-2 text-sm leading-relaxed backdrop-blur-xl",
+                            message.role === "user"
+                              ? "border-cyan-300/35 bg-cyan-400/14 text-cyan-50"
+                              : "border-white/20 bg-white/[0.08] text-slate-100",
+                            message.error && "border-rose-300/35 bg-rose-500/15 text-rose-100"
+                          )}
+                        >
+                          {message.pending && !message.content ? <TypingDots /> : message.content}
+                        </div>
+                        <p className="mt-1 px-1 text-[11px] text-slate-400">
+                          {message.role === "user" ? "Voce" : "IA"} - {formatTime(message.createdAt)}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <form
+              onSubmit={onSubmit}
+              className="rounded-2xl border border-white/20 bg-black/45 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.58)] backdrop-blur-2xl sm:p-4"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  void onFileChange(event);
+                }}
+              />
+              <Textarea
+                ref={textareaRef}
+                rows={1}
+                value={inputValue}
+                onChange={(event) => setInputValue(event.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Descreva sua solicitacao..."
+                className="min-h-[68px] resize-none border-0 bg-transparent px-0 text-sm placeholder:text-slate-400/75 focus-visible:ring-0 sm:min-h-[84px] sm:text-base"
+              />
+              {attachments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {attachments.map((file) => (
+                    <div
+                      key={file.id}
+                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/20 bg-white/[0.06] px-2.5 py-1 text-xs text-slate-200"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-cyan-200" />
+                      <span className="max-w-[140px] truncate sm:max-w-[220px]">{file.name}</span>
+                      <span className="text-slate-400">{formatBytes(file.size)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(file.id)}
+                        className="rounded-full p-0.5 text-slate-400 transition hover:bg-white/10 hover:text-slate-200"
+                        aria-label={`Remover ${file.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-10 w-10 rounded-xl border border-white/15 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
+                  aria-label="Anexar arquivo"
+                  onClick={openFilePicker}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  type="submit"
+                  disabled={!canSend}
+                  size="icon"
+                  className="h-10 w-10 rounded-xl border border-white/20 bg-gradient-to-r from-blue-500/55 to-violet-500/55 text-white shadow-[0_10px_26px_rgba(58,78,255,0.3)] hover:from-blue-500/70 hover:to-violet-500/70 disabled:opacity-45"
+                  aria-label="Enviar mensagem"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+
+            <div className="-mx-1 mt-3 overflow-x-auto pb-1 sm:mt-4 sm:overflow-visible">
+              <div className="flex w-max min-w-full items-center gap-2 px-1 sm:w-full sm:min-w-0 sm:flex-wrap sm:justify-center">
+                {QUICK_ACTIONS.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={() => handleQuickActionClick(action)}
+                      className="group inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-white/20 bg-black/35 px-3 py-1.5 text-[11px] text-slate-100 backdrop-blur-xl transition hover:-translate-y-[1px] hover:border-cyan-300/45 hover:bg-cyan-300/12 sm:px-3.5 sm:py-2 sm:text-xs"
+                    >
+                      <Icon className="h-3.5 w-3.5 text-cyan-100/80 transition group-hover:text-cyan-100" />
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </main>
       </div>
