@@ -103,7 +103,7 @@
       async function loadConfig() {
         await new Promise((resolve) => {
           const script = document.createElement("script");
-          script.src = "./config.js";
+          script.src = `./config.js?v=${Date.now()}`;
           script.onload = () => resolve(null);
           script.onerror = () => resolve(null);
           document.head.appendChild(script);
