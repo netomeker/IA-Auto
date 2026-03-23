@@ -1,5 +1,5 @@
 window.CENTRAL_IA_CONFIG = {
-  "apiBaseUrl": "https://common-pants-fold.loca.lt",
-  "apiEndpoint": "https://common-pants-fold.loca.lt",
+  "apiBaseUrl": "https://heavy-rocks-yawn.loca.lt",
+  "apiEndpoint": "https://heavy-rocks-yawn.loca.lt",
   "defaultModel": "deepseek-ai/deepseek-v3.2"
 };
