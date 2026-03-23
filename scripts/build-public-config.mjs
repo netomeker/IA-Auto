@@ -59,6 +59,33 @@ function readBaseFromExistingConfig() {
   return "";
 }
 
+function readBackupFromExistingConfig() {
+  const files = [
+    path.join(root, "config.js"),
+    path.join(root, "public", "config.js")
+  ];
+
+  for (const filePath of files) {
+    const raw = readTextFileSafe(filePath);
+    if (!raw) continue;
+
+    const match = raw.match(/window\.CENTRAL_IA_CONFIG\s*=\s*(\{[\s\S]*\})\s*;?\s*$/);
+    if (!match?.[1]) continue;
+
+    try {
+      const parsed = JSON.parse(match[1]);
+      const backup = normalizeBase(String(parsed.backendUrl || ""));
+      if (backup) {
+        return backup;
+      }
+    } catch {
+      // Ignore malformed config and continue.
+    }
+  }
+
+  return "";
+}
+
 function resolveApiBaseUrl() {
   const explicit = normalizeBase(
     process.env.PUBLIC_API_BASE_URL ||
@@ -74,19 +101,19 @@ function resolveApiBaseUrl() {
     };
   }
 
-  const fromPublicUrlFile = normalizeBase(readTextFileSafe(path.join(root, "public_url.txt")));
-  if (fromPublicUrlFile) {
-    return {
-      value: fromPublicUrlFile,
-      source: "public_url.txt"
-    };
-  }
-
   const fromExistingConfig = readBaseFromExistingConfig();
   if (fromExistingConfig) {
     return {
       value: fromExistingConfig,
       source: "config.js existente"
+    };
+  }
+
+  const fromPublicUrlFile = normalizeBase(readTextFileSafe(path.join(root, "public_url.txt")));
+  if (fromPublicUrlFile) {
+    return {
+      value: fromPublicUrlFile,
+      source: "public_url.txt"
     };
   }
 
@@ -115,12 +142,14 @@ function resolveApiBaseUrl() {
 function buildConfig() {
   const resolvedBase = resolveApiBaseUrl();
   const apiBaseUrl = resolvedBase.value;
+  const backupBase = normalizeBase(process.env.PUBLIC_API_BACKUP_BASE_URL || readBackupFromExistingConfig() || "");
 
   const model = String(process.env.PUBLIC_MODEL || process.env.NVIDIA_MODEL || defaultModel).trim() || defaultModel;
 
   return {
     apiBaseUrl,
     apiEndpoint: apiBaseUrl,
+    backendUrl: backupBase,
     defaultModel: model,
     _source: resolvedBase.source
   };
