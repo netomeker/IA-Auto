@@ -72,6 +72,20 @@ function pidIsRunning(pidRaw) {
   }
 }
 
+function stopPid(pidRaw) {
+  const pid = Number(pidRaw);
+  if (!pid || Number.isNaN(pid)) {
+    return false;
+  }
+
+  try {
+    process.kill(pid, 'SIGTERM');
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
 async function getPublicUrl() {
   const raw = fs.existsSync(URL_FILE) ? String(fs.readFileSync(URL_FILE, 'utf-8')).trim() : '';
   if (!raw.startsWith('http')) {
@@ -88,6 +102,11 @@ async function ensureTunnel() {
 
   if (existingPid && pidIsRunning(existingPid) && existingUrl) {
     return existingUrl;
+  }
+
+  if (existingPid && pidIsRunning(existingPid) && !existingUrl) {
+    stopPid(existingPid);
+    await delay(500);
   }
 
   spawnDetachedNode(['tunnel_runner.js'], 'tunnel_runner.out.log', 'tunnel_runner.err.log');
