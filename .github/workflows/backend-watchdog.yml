@@ -1,0 +1,62 @@
+name: Backend Watchdog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      ENDPOINT_A: https://ia-auto-netomeker-1188462725.loca.lt/api/health
+      ENDPOINT_B: https://ia-auto-netomeker-1188462726.loca.lt/api/health
+      REPO: netomeker/IA-Auto
+      REF: main
+    steps:
+      - name: Check endpoint A
+        id: a
+        run: |
+          if curl -fsS --max-time 8 "$ENDPOINT_A" > /dev/null; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "A ok"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "A down"
+          fi
+
+      - name: Check endpoint B
+        id: b
+        run: |
+          if curl -fsS --max-time 8 "$ENDPOINT_B" > /dev/null; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "B ok"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "B down"
+          fi
+
+      - name: Restart keepalive A when down
+        if: steps.a.outputs.ok != 'true'
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/actions/workflows/backend-keepalive.yml/dispatches" \
+            -d "{\"ref\":\"$REF\"}"
+
+      - name: Restart keepalive B when down
+        if: steps.b.outputs.ok != 'true'
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/actions/workflows/backend-keepalive-b.yml/dispatches" \
+            -d "{\"ref\":\"$REF\"}"
