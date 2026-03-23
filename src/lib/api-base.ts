@@ -100,11 +100,18 @@ function getRuntimeBases() {
     return [];
   }
 
-  const origin = normalizeBase(window.location.origin);
-  const local = [
-    normalizeBase("http://127.0.0.1:3000"),
-    normalizeBase("http://localhost:3000")
-  ];
+  const host = String(window.location.hostname || "").toLowerCase();
+  const isGithubPages = host.endsWith(".github.io");
+
+  // GitHub Pages e estatico e nao suporta backend no mesmo dominio.
+  // Evita fallback enganoso para /api no proprio Pages.
+  const origin = isGithubPages ? "" : normalizeBase(window.location.origin);
+  const local = isGithubPages
+    ? []
+    : [
+      normalizeBase("http://127.0.0.1:3000"),
+      normalizeBase("http://localhost:3000")
+    ];
 
   return unique([origin, ...local, ...getGithubNetlifyGuesses()]);
 }
