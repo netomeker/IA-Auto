@@ -28,7 +28,15 @@ async function start() {
     fs.writeFileSync(PID_FILE, String(process.pid));
     log('Starting localtunnel on port 3000');
 
-    const tunnel = await localtunnel({ port: 3000 });
+    const requestedSubdomain = String(process.env.LT_SUBDOMAIN || '').trim();
+    const tunnelOptions = { port: 3000 };
+
+    if (requestedSubdomain) {
+      tunnelOptions.subdomain = requestedSubdomain;
+      log(`Requested subdomain: ${requestedSubdomain}`);
+    }
+
+    const tunnel = await localtunnel(tunnelOptions);
     fs.writeFileSync(URL_FILE, String(tunnel.url || ''));
     log(`Tunnel URL: ${tunnel.url}`);
 

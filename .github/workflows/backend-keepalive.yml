@@ -1,0 +1,82 @@
+name: Keep Backend Online (GitHub Runner)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-keepalive
+  cancel-in-progress: true
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      PORT: "3000"
+      NVIDIA_MODEL: deepseek-ai/deepseek-v3.2
+      LT_SUBDOMAIN: ia-auto-netomeker-1188462725
+      NVIDIA_API_KEY: ${{ vars.NVIDIA_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure required API key
+        run: |
+          if [ -z "${NVIDIA_API_KEY}" ]; then
+            echo "NVIDIA_API_KEY variable is missing in repository variables."
+            exit 1
+          fi
+
+      - name: Start backend and tunnel
+        run: |
+          node launch_public.js
+          PUBLIC_URL="$(cat public_url.txt)"
+          echo "PUBLIC_URL=${PUBLIC_URL}" >> "$GITHUB_ENV"
+          echo "PUBLIC_URL=${PUBLIC_URL}"
+
+      - name: Wait public health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS "${PUBLIC_URL}/api/health" > /dev/null; then
+              echo "Backend online at ${PUBLIC_URL}"
+              exit 0
+            fi
+            echo "Waiting health (${i}/60)..."
+            sleep 2
+          done
+          echo "Health check failed for ${PUBLIC_URL}"
+          exit 1
+
+      - name: Keep service alive until next run
+        run: |
+          echo "Keepalive loop started at ${PUBLIC_URL}"
+          while true; do
+            node launch_public.js || true
+            CURRENT_URL="$(cat public_url.txt)"
+            if [ "${CURRENT_URL}" != "${PUBLIC_URL}" ]; then
+              echo "Tunnel URL updated: ${CURRENT_URL}"
+              PUBLIC_URL="${CURRENT_URL}"
+            fi
+
+            if curl -fsS "${PUBLIC_URL}/api/health" > /dev/null; then
+              echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') OK ${PUBLIC_URL}"
+            else
+              echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') WARN health failed, retrying..."
+            fi
+
+            sleep 55
+          done
