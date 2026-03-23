@@ -1,7 +1,7 @@
 type ApiRoute = "/api/health" | "/api/chat" | "/api/chat-stream";
 
 const LAST_API_BASE_KEY = "central_ia_last_api_base";
-const RETRYABLE_STATUS = new Set([404, 405, 502, 503, 504]);
+const RETRYABLE_STATUS = new Set([401, 403, 404, 405, 502, 503, 504]);
 
 function normalizeBase(raw: string) {
   const value = String(raw || "").trim();
@@ -48,6 +48,15 @@ function getStoredBase() {
   } catch (_error) {
     return "";
   }
+}
+
+function useStoredBase() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const host = String(window.location.hostname || "").toLowerCase();
+  return !host.endsWith(".github.io");
 }
 
 function storeBase(base: string) {
@@ -117,10 +126,13 @@ function getRuntimeBases() {
 }
 
 function getCandidates(preferredBase?: string) {
+  const configured = getConfiguredBases();
+  const stored = useStoredBase() ? getStoredBase() : "";
+
   return unique([
     normalizeBase(preferredBase || ""),
-    getStoredBase(),
-    ...getConfiguredBases(),
+    ...configured,
+    stored,
     ...getRuntimeBases()
   ]);
 }
