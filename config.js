@@ -1,6 +1,6 @@
 window.CENTRAL_IA_CONFIG = {
-  "apiBaseUrl": "https://hot-carrots-go.loca.lt",
-  "apiEndpoint": "https://hot-carrots-go.loca.lt",
+  "apiBaseUrl": "https://tangy-lamps-glow.loca.lt",
+  "apiEndpoint": "https://tangy-lamps-glow.loca.lt",
   "backendUrl": "",
   "defaultModel": "deepseek-ai/deepseek-v3.2"
 };
