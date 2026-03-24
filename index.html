@@ -112,6 +112,67 @@
         window.CENTRAL_IA_CONFIG = window.CENTRAL_IA_CONFIG || { apiBaseUrl: "", apiEndpoint: "" };
       }
 
+      function normalizeBase(raw) {
+        const value = String(raw || "").trim();
+        if (!value) return "";
+        try {
+          const parsed = new URL(value.startsWith("http") ? value : `https://${value}`);
+          parsed.search = "";
+          parsed.hash = "";
+          parsed.pathname = parsed.pathname.replace(/\/+$/, "");
+          return parsed.toString().replace(/\/+$/, "");
+        } catch (_error) {
+          return "";
+        }
+      }
+
+      async function loadDynamicGithubBackend() {
+        if (typeof window === "undefined") return;
+
+        const host = String(window.location.hostname || "").toLowerCase();
+        if (!host.endsWith(".github.io")) {
+          return;
+        }
+
+        const owner = host.replace(/\.github\.io$/i, "");
+        const pathParts = window.location.pathname.split("/").filter(Boolean);
+        let repo = pathParts[0] || "";
+        if (!repo) {
+          repo = `${owner}.github.io`;
+        }
+
+        const refs = ["main", "master"];
+        let backendBase = "";
+
+        for (const ref of refs) {
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/public_backend_url.txt?v=${Date.now()}`;
+          try {
+            const response = await fetch(rawUrl, { cache: "no-store" });
+            if (!response.ok) continue;
+            const text = await response.text();
+            const normalized = normalizeBase(text);
+            if (normalized) {
+              backendBase = normalized;
+              break;
+            }
+          } catch (_error) {
+            // Tenta proximo ref.
+          }
+        }
+
+        if (!backendBase) {
+          return;
+        }
+
+        const current = window.CENTRAL_IA_CONFIG || {};
+        window.CENTRAL_IA_CONFIG = {
+          ...current,
+          apiBaseUrl: backendBase,
+          apiEndpoint: backendBase,
+          backendUrl: ""
+        };
+      }
+
       function addModuleScript(src) {
         return new Promise((resolve, reject) => {
           const script = document.createElement("script");
@@ -168,6 +229,7 @@
 
       async function boot() {
         await loadConfig();
+        await loadDynamicGithubBackend();
         setBoot("Carregando app", "Tentando modo desenvolvimento...", "import('/src/main.tsx')");
 
         try {

@@ -101,6 +101,14 @@ function resolveApiBaseUrl() {
     };
   }
 
+  const fromTrackedBackendFile = normalizeBase(readTextFileSafe(path.join(root, "public_backend_url.txt")));
+  if (fromTrackedBackendFile) {
+    return {
+      value: fromTrackedBackendFile,
+      source: "public_backend_url.txt"
+    };
+  }
+
   const fromExistingConfig = readBaseFromExistingConfig();
   if (fromExistingConfig) {
     return {

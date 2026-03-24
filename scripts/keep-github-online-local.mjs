@@ -83,7 +83,7 @@ async function ensureHealthyUrl() {
 async function syncGithub(url) {
   const base = String(url || "").trim();
   if (!base) return false;
-  return runNodeScript(path.join("scripts", "sync-github-pages-url.mjs"), [base]);
+  return runNodeScript(path.join("scripts", "sync-public-backend-url.mjs"), [base]);
 }
 
 log("Iniciando monitor local para GitHub Pages (PC ligado).");

@@ -9,6 +9,7 @@ const LOG_FILE = path.join(ROOT, "public_tunnel.log");
 const PID_FILE = path.join(ROOT, "public_tunnel.pid");
 const CLOUD_FLARED_LOCAL_PATH = path.join(ROOT, "tools", "cloudflared.exe");
 const URL_REGEX = /(https:\/\/[a-z0-9-]+\.trycloudflare\.com)/i;
+const LOCALHOST_RUN_REGEX = /https:\/\/[a-z0-9.-]+/i;
 
 function log(message) {
   const line = `[${new Date().toISOString()}] ${message}\n`;
@@ -69,6 +70,19 @@ function detectCloudflaredPath() {
   return "";
 }
 
+function hasSshClient() {
+  try {
+    const check = spawnSync("ssh", ["-V"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    return check.status === 0;
+  } catch (_error) {
+    return false;
+  }
+}
+
 async function startLocaltunnel() {
   const tunnelHost = String(process.env.LT_HOST || "https://loca.lt").trim();
   log(`Starting localtunnel on port 3000 via host ${tunnelHost}`);
@@ -104,6 +118,104 @@ async function startLocaltunnel() {
     cleanupPid();
     tunnel.close();
   });
+}
+
+async function startLocalhostRun() {
+  log("Starting localhost.run tunnel via OpenSSH");
+
+  const user = String(process.env.LOCALHOSTRUN_USER || "nokey").trim() || "nokey";
+  const host = String(process.env.LOCALHOSTRUN_HOST || "localhost.run").trim() || "localhost.run";
+  const remote = `${user}@${host}`;
+  const args = [
+    "-o",
+    "StrictHostKeyChecking=no",
+    "-o",
+    "UserKnownHostsFile=NUL",
+    "-o",
+    "ServerAliveInterval=30",
+    "-o",
+    "ServerAliveCountMax=3",
+    "-o",
+    "ExitOnForwardFailure=yes",
+    "-R",
+    "80:127.0.0.1:3000",
+    remote
+  ];
+
+  const child = spawn("ssh", args, {
+    cwd: ROOT,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  let ready = false;
+  let timeout = null;
+
+  const closeWithSignal = () => {
+    if (!child.killed) {
+      child.kill("SIGTERM");
+    }
+  };
+
+  process.on("SIGINT", () => {
+    cleanupPid();
+    closeWithSignal();
+  });
+  process.on("SIGTERM", () => {
+    cleanupPid();
+    closeWithSignal();
+  });
+
+  function tryExtractUrl(line) {
+    if (!/tunneled with tls termination/i.test(line)) {
+      return "";
+    }
+    const match = line.match(LOCALHOST_RUN_REGEX);
+    return match?.[0] || "";
+  }
+
+  function onLine(line, source) {
+    log(`[localhost.run:${source}] ${line}`);
+    const candidate = tryExtractUrl(line);
+    if (candidate && !ready) {
+      ready = true;
+      clearTimeout(timeout);
+      writeUrl(candidate);
+    }
+  }
+
+  child.stdout.on("data", (chunk) => {
+    for (const line of splitLines(chunk)) {
+      onLine(line, "out");
+    }
+  });
+
+  child.stderr.on("data", (chunk) => {
+    for (const line of splitLines(chunk)) {
+      onLine(line, "err");
+    }
+  });
+
+  child.on("error", (error) => {
+    log(`localhost.run process error: ${String(error?.message || error)}`);
+    if (!ready) {
+      cleanupPid();
+      process.exit(1);
+    }
+  });
+
+  child.on("exit", (code, signal) => {
+    clearTimeout(timeout);
+    log(`localhost.run exited (code=${code}, signal=${signal || "none"})`);
+    cleanupPid();
+    process.exit(code === 0 ? 0 : 1);
+  });
+
+  timeout = setTimeout(() => {
+    if (!ready) {
+      log("localhost.run timeout waiting for URL");
+      closeWithSignal();
+    }
+  }, 45000);
 }
 
 async function startCloudflared(command) {
@@ -181,19 +293,27 @@ async function startCloudflared(command) {
 function resolveProvider() {
   const requested = String(process.env.TUNNEL_PROVIDER || "").trim().toLowerCase();
   const cloudflaredPath = detectCloudflaredPath();
+  const hasSsh = hasSshClient();
 
   if (requested === "cloudflared") {
     return cloudflaredPath
       ? { provider: "cloudflared", command: cloudflaredPath }
-      : { provider: "localtunnel", command: "" };
+      : { provider: hasSsh ? "localhostrun" : "localtunnel", command: "" };
+  }
+
+  if (requested === "localhostrun" || requested === "localhost.run") {
+    return { provider: hasSsh ? "localhostrun" : "localtunnel", command: "" };
   }
 
   if (requested === "localtunnel") {
     return { provider: "localtunnel", command: "" };
   }
 
-  // Default to localtunnel for wider IPv4 compatibility.
-  // Use TUNNEL_PROVIDER=cloudflared when explicitly desired.
+  // Default: localhost.run tends to be more stable than localtunnel in this project.
+  if (hasSsh) {
+    return { provider: "localhostrun", command: "" };
+  }
+
   return { provider: "localtunnel", command: "" };
 }
 
@@ -207,6 +327,11 @@ async function start() {
 
     if (selected.provider === "cloudflared") {
       await startCloudflared(selected.command);
+      return;
+    }
+
+    if (selected.provider === "localhostrun") {
+      await startLocalhostRun();
       return;
     }
 
