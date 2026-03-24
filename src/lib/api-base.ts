@@ -2,6 +2,7 @@ type ApiRoute = "/api/health" | "/api/chat" | "/api/chat-stream";
 
 const LAST_API_BASE_KEY = "central_ia_last_api_base";
 const RETRYABLE_STATUS = new Set([401, 403, 404, 405, 408, 500, 502, 503, 504]);
+const RETRY_DELAYS_MS = [0, 900, 2200, 4500];
 
 function normalizeBase(raw: string) {
   const value = String(raw || "").trim();
@@ -149,6 +150,10 @@ function routeFromBase(base: string, route: ApiRoute) {
   return `${base}${route}`;
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function fetchWithApiFallback(
   route: ApiRoute,
   init: RequestInit,
@@ -157,27 +162,43 @@ export async function fetchWithApiFallback(
   const candidates = getCandidates(preferredBase);
   const tried: string[] = [];
   const errors: string[] = [];
+  const maxRounds = route === "/api/health" ? 2 : 4;
 
-  for (const base of candidates) {
-    const url = routeFromBase(base, route);
-    tried.push(url);
+  for (let round = 0; round < maxRounds; round += 1) {
+    const roundErrors: string[] = [];
 
-    try {
-      const response = await fetch(url, init);
+    for (const base of candidates) {
+      const url = routeFromBase(base, route);
+      tried.push(url);
 
-      if (response.ok) {
-        storeBase(base);
+      try {
+        const response = await fetch(url, init);
+
+        if (response.ok) {
+          storeBase(base);
+          return { response, url, base, tried };
+        }
+
+        if (RETRYABLE_STATUS.has(response.status)) {
+          roundErrors.push(`${url} -> HTTP ${response.status}`);
+          continue;
+        }
+
         return { response, url, base, tried };
+      } catch (error) {
+        roundErrors.push(`${url} -> ${String(error)}`);
       }
+    }
 
-      if (RETRYABLE_STATUS.has(response.status)) {
-        errors.push(`${url} -> HTTP ${response.status}`);
-        continue;
+    if (roundErrors.length) {
+      errors.push(`[round ${round + 1}] ${roundErrors.join(" | ")}`);
+    }
+
+    if (round < maxRounds - 1) {
+      const delayMs = RETRY_DELAYS_MS[Math.min(round + 1, RETRY_DELAYS_MS.length - 1)] || 0;
+      if (delayMs > 0) {
+        await wait(delayMs);
       }
-
-      return { response, url, base, tried };
-    } catch (error) {
-      errors.push(`${url} -> ${String(error)}`);
     }
   }
 
