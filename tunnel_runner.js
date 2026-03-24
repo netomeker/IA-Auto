@@ -70,10 +70,11 @@ function detectCloudflaredPath() {
 }
 
 async function startLocaltunnel() {
-  log("Starting localtunnel on port 3000");
+  const tunnelHost = String(process.env.LT_HOST || "https://loca.lt").trim();
+  log(`Starting localtunnel on port 3000 via host ${tunnelHost}`);
 
   const requestedSubdomain = String(process.env.LT_SUBDOMAIN || "").trim();
-  const tunnelOptions = { port: 3000 };
+  const tunnelOptions = { port: 3000, host: tunnelHost };
 
   if (requestedSubdomain) {
     tunnelOptions.subdomain = requestedSubdomain;
