@@ -3,7 +3,12 @@ cd /d "%~dp0"
 if "%AI_PROVIDER%"=="" set AI_PROVIDER=auto
 if "%LOCAL_MODEL%"=="" set LOCAL_MODEL=gemma3:4b
 echo Iniciando backend + link publico...
-node launch_public.js
+node scripts\ensure-public-url-healthy.mjs
+if errorlevel 1 (
+  echo Falha ao gerar URL publica saudavel.
+  pause
+  exit /b 1
+)
 
 if exist public_url.txt (
   for /f "usebackq delims=" %%u in ("public_url.txt") do set PUBLIC_URL=%%u
