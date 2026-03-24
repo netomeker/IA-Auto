@@ -162,7 +162,7 @@ function friendlyError(raw: unknown) {
   if (/NVIDIA.?API.?KEY ausente|hasServerKey["']?\s*:\s*false|backend sem chave|missing api key/i.test(text)) {
     return "Backend sem chave NVIDIA. No Netlify, adicione NVIDIA_API_KEY e publique novamente.";
   }
-  if (/401|Unauthorized|Authentication failed|invalid api key/i.test(text)) {
+  if (/Unauthorized|Authentication failed|invalid api key/i.test(text)) {
     return "Chave NVIDIA invalida ou expirada no backend.";
   }
   if (/429|rate limit|quota/i.test(text)) {

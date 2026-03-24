@@ -189,7 +189,7 @@ function parseSseBlock(block: string) {
 function toFriendlyError(rawMessage: string) {
   const value = String(rawMessage || "").trim();
 
-  if (/Unauthorized|Authentication failed|HTTP 401/i.test(value)) {
+  if (/Unauthorized|Authentication failed|invalid api key/i.test(value)) {
     return "Servidor sem autorização no provedor. Verifique a chave NVIDIA_API_KEY no backend.";
   }
 
