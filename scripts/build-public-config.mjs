@@ -101,6 +101,25 @@ function resolveApiBaseUrl() {
     };
   }
 
+  const forceSameOrigin = /^(1|true|yes|on)$/i.test(String(process.env.PUBLIC_API_SAME_ORIGIN || "").trim());
+  const onNetlify = /^(1|true|yes|on)$/i.test(String(process.env.NETLIFY || "").trim());
+  const onRender = Boolean(
+    String(process.env.RENDER || "").trim() ||
+      String(process.env.RENDER_SERVICE_ID || "").trim() ||
+      String(process.env.RENDER_EXTERNAL_HOSTNAME || "").trim()
+  );
+
+  if (forceSameOrigin || onNetlify || onRender) {
+    return {
+      value: "",
+      source: forceSameOrigin
+        ? "PUBLIC_API_SAME_ORIGIN"
+        : onNetlify
+          ? "NETLIFY (mesmo dominio do frontend)"
+          : "RENDER (mesmo dominio do frontend)"
+    };
+  }
+
   const fromTrackedBackendFile = normalizeBase(readTextFileSafe(path.join(root, "public_backend_url.txt")));
   if (fromTrackedBackendFile) {
     return {

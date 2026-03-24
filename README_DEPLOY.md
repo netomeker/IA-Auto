@@ -23,6 +23,11 @@ Assim qualquer pessoa entra no link e o chat ja funciona sem configurar nada.
 O build agora gera automaticamente `public/config.js` e `config.js` com base nas variaveis:
 - `PUBLIC_API_BASE_URL`
 - `PUBLIC_MODEL`
+- `PUBLIC_API_SAME_ORIGIN` (opcional, para forcar API no mesmo dominio)
+
+Regra nova de estabilidade:
+1. Em deploy no **Netlify** ou **Render**, se `PUBLIC_API_BASE_URL` nao estiver definido, o projeto usa automaticamente **mesmo dominio**.
+2. Isso evita herdar URL antiga de tunel (`*.lhr.life`, etc.) no deploy final.
 
 Comandos utilitarios:
 1. `npm run prepare:config`
