@@ -2,31 +2,15 @@
 cd /d "%~dp0"
 if "%AI_PROVIDER%"=="" set AI_PROVIDER=auto
 if "%LOCAL_MODEL%"=="" set LOCAL_MODEL=gemma3:4b
-echo Iniciando backend + link publico...
-node scripts\ensure-public-url-healthy.mjs
-if errorlevel 1 (
-  echo Falha ao gerar URL publica saudavel.
-  pause
-  exit /b 1
-)
-
-if exist public_url.txt (
-  for /f "usebackq delims=" %%u in ("public_url.txt") do set PUBLIC_URL=%%u
-  if not "%PUBLIC_URL%"=="" (
-    echo.
-    echo Link publico:
-    echo %PUBLIC_URL%
-    start "" "%PUBLIC_URL%"
-
-    echo.
-    echo Sincronizando URL no GitHub Pages...
-    node scripts\sync-github-pages-url.mjs "%PUBLIC_URL%"
-    if errorlevel 1 (
-      echo Falha ao sincronizar no GitHub. O link publico direto ainda funciona.
-    )
-  )
-)
-
+echo Iniciando modo manter online no GitHub Pages...
 echo.
-echo Se fechar este terminal e os processos Node, o link para de funcionar.
+echo Link do seu site:
+echo https://netomeker.github.io/IA-Auto/
+echo.
+echo Deixe este terminal aberto para manter funcionando com PC ligado.
+echo.
+start "" "https://netomeker.github.io/IA-Auto/"
+node scripts\keep-github-online-local.mjs
+echo.
+echo Processo encerrado.
 pause
