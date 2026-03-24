@@ -117,22 +117,6 @@ function resolveApiBaseUrl() {
     };
   }
 
-  const repository = String(process.env.GITHUB_REPOSITORY || "").trim();
-  if (repository.includes("/")) {
-    const [owner, repoName] = repository.split("/");
-    const guesses = [
-      normalizeBase(repoName ? `https://${repoName}.netlify.app` : ""),
-      normalizeBase(owner ? `https://${owner}.netlify.app` : "")
-    ].filter(Boolean);
-
-    if (guesses[0]) {
-      return {
-        value: guesses[0],
-        source: "palpite github->netlify"
-      };
-    }
-  }
-
   return {
     value: "",
     source: "mesmo dominio do frontend"

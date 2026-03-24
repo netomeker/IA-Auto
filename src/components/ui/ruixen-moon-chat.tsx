@@ -160,7 +160,7 @@ function errorTextFromUnknown(raw: unknown) {
 function friendlyError(raw: unknown) {
   const text = errorTextFromUnknown(raw);
   if (/NVIDIA.?API.?KEY ausente|hasServerKey["']?\s*:\s*false|backend sem chave|missing api key/i.test(text)) {
-    return "Backend sem chave NVIDIA. No Netlify, adicione NVIDIA_API_KEY e publique novamente.";
+    return "Backend sem chave NVIDIA. Configure NVIDIA_API_KEY no backend publicado.";
   }
   if (/Unauthorized|Authentication failed|invalid api key/i.test(text)) {
     return "Chave NVIDIA invalida ou expirada no backend.";
@@ -346,7 +346,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
     if (!hasServerKey) {
       setHealth({
         status: "missing_key",
-        detail: "NVIDIA_API_KEY ausente no backend Netlify.",
+        detail: "NVIDIA_API_KEY ausente no backend publicado.",
         model: currentModel
       });
       return;

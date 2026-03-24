@@ -86,25 +86,6 @@ function getConfiguredBases() {
   ]);
 }
 
-function getGithubNetlifyGuesses() {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  const host = String(window.location.hostname || "").toLowerCase();
-  if (!host.endsWith(".github.io")) {
-    return [];
-  }
-
-  const user = host.replace(/\.github\.io$/i, "");
-  const repo = window.location.pathname.split("/").filter(Boolean)[0] || "";
-
-  return unique([
-    normalizeBase(repo ? `https://${repo}.netlify.app` : ""),
-    normalizeBase(user ? `https://${user}.netlify.app` : "")
-  ]);
-}
-
 function getRuntimeBases() {
   if (typeof window === "undefined") {
     return [];
@@ -123,7 +104,7 @@ function getRuntimeBases() {
       normalizeBase("http://localhost:3000")
     ];
 
-  return unique([origin, ...local, ...getGithubNetlifyGuesses()]);
+  return unique([origin, ...local]);
 }
 
 function getCandidates(preferredBase?: string) {
