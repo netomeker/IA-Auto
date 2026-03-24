@@ -83,6 +83,12 @@ async function startLocaltunnel() {
   const tunnel = await localtunnel(tunnelOptions);
   writeUrl(String(tunnel.url || ""));
 
+  tunnel.on("error", (error) => {
+    log(`Localtunnel error: ${String(error?.message || error)}`);
+    cleanupPid();
+    process.exit(1);
+  });
+
   tunnel.on("close", () => {
     log("Localtunnel closed");
     cleanupPid();
