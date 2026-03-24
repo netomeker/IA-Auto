@@ -691,7 +691,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.12 }}
           >
-            <span className="text-[10px] uppercase tracking-wide text-white/60 sm:text-[11px]">
+            <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] sm:text-xs">
               <span
                 className={cn(
                   "block h-3 w-3 rounded-full border shadow-[0_0_18px_rgba(16,185,129,0.55)]",
@@ -707,6 +707,13 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                 title={`${health.detail} | modelo: ${health.model}`}
                 aria-label={`Status da IA: ${health.detail}`}
               />
+              <span
+                className={cn(
+                  health.status === "online" ? "text-emerald-300" : "text-rose-300"
+                )}
+              >
+                {health.status === "online" ? "ON" : "OFF"}
+              </span>
             </span>
           </motion.div>
         </header>
