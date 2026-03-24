@@ -126,6 +126,49 @@
         }
       }
 
+      function decodeGithubBase64(raw) {
+        const value = String(raw || "").replace(/\s+/g, "");
+        if (!value) return "";
+        try {
+          return atob(value);
+        } catch (_error) {
+          return "";
+        }
+      }
+
+      async function loadBackendFromGithubApi(owner, repo, ref) {
+        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/public_backend_url.txt?ref=${ref}&v=${Date.now()}`;
+        try {
+          const response = await fetch(apiUrl, {
+            cache: "no-store",
+            headers: { Accept: "application/vnd.github+json" }
+          });
+          if (!response.ok) return "";
+
+          const payload = await response.json().catch(() => null);
+          if (!payload || typeof payload !== "object") return "";
+
+          const encoding = String(payload.encoding || "").toLowerCase();
+          const raw = String(payload.content || "");
+          const text = encoding === "base64" ? decodeGithubBase64(raw) : raw;
+          return normalizeBase(text);
+        } catch (_error) {
+          return "";
+        }
+      }
+
+      async function loadBackendFromGithubRaw(owner, repo, ref) {
+        const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/public_backend_url.txt?v=${Date.now()}`;
+        try {
+          const response = await fetch(rawUrl, { cache: "no-store" });
+          if (!response.ok) return "";
+          const text = await response.text();
+          return normalizeBase(text);
+        } catch (_error) {
+          return "";
+        }
+      }
+
       async function loadDynamicGithubBackend() {
         if (typeof window === "undefined") return;
 
@@ -145,18 +188,16 @@
         let backendBase = "";
 
         for (const ref of refs) {
-          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/public_backend_url.txt?v=${Date.now()}`;
-          try {
-            const response = await fetch(rawUrl, { cache: "no-store" });
-            if (!response.ok) continue;
-            const text = await response.text();
-            const normalized = normalizeBase(text);
-            if (normalized) {
-              backendBase = normalized;
-              break;
-            }
-          } catch (_error) {
-            // Tenta proximo ref.
+          const fromApi = await loadBackendFromGithubApi(owner, repo, ref);
+          if (fromApi) {
+            backendBase = fromApi;
+            break;
+          }
+
+          const fromRaw = await loadBackendFromGithubRaw(owner, repo, ref);
+          if (fromRaw) {
+            backendBase = fromRaw;
+            break;
           }
         }
 
