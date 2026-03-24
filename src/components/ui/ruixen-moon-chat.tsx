@@ -83,13 +83,13 @@ type RuixenMoonChatProps = {
 
 const QUICK_ACTIONS: QuickAction[] = [
   { id: "generate_code", label: "Gerar codigo", prompt: "Gere codigo pronto para producao para este objetivo:", icon: Code2, action: "code-builder" },
-  { id: "launch_app", label: "Lancar app", prompt: "Monte um checklist de lancamento para este app:", icon: Rocket },
-  { id: "ui_components", label: "Componentes UI", prompt: "Desenhe componentes reutilizaveis para esta feature:", icon: Layers3 },
-  { id: "theme_ideas", label: "Ideias de tema", prompt: "Sugira paletas e direcao visual para este produto:", icon: Palette },
-  { id: "dashboard", label: "Dashboard", prompt: "Estruture dashboard com KPIs e acoes-chave:", icon: LayoutDashboard },
-  { id: "landing_page", label: "Landing page", prompt: "Escreva estrutura de landing page com foco em conversao:", icon: WandSparkles },
-  { id: "docs", label: "Processar docs", prompt: "Resuma os documentos e transforme em passos de implementacao:", icon: Upload },
-  { id: "assets", label: "Assets visuais", prompt: "Sugira assets de imagem e estilo visual para a marca:", icon: ImageIcon }
+  { id: "debug_bug", label: "Resolver bug", prompt: "Analise este erro e entregue causa raiz, correcao e patch final:", icon: Rocket },
+  { id: "review_code", label: "Code review", prompt: "Faca review tecnico deste codigo, liste riscos e melhore:", icon: Layers3 },
+  { id: "refactor", label: "Refatorar", prompt: "Refatore este trecho com foco em clareza, performance e testes:", icon: Palette },
+  { id: "api_design", label: "API design", prompt: "Desenhe uma API robusta para este requisito, com rotas, validacao e exemplos:", icon: LayoutDashboard },
+  { id: "fix_mobile", label: "Fix mobile", prompt: "Corrija problemas de responsividade e UX mobile deste layout:", icon: WandSparkles },
+  { id: "tests", label: "Criar testes", prompt: "Crie testes automatizados para este codigo cobrindo casos criticos:", icon: Upload },
+  { id: "explain_stacktrace", label: "Explicar erro", prompt: "Explique este stack trace e diga exatamente como corrigir:", icon: ImageIcon }
 ];
 
 const LANGUAGE_HINTS: Record<string, string> = {
@@ -100,7 +100,7 @@ const LANGUAGE_HINTS: Record<string, string> = {
   react: "Monte componentes reutilizaveis com hooks.",
   "node.js": "Estruture backend com rotas, validacao e seguranca.",
   python: "Implemente script/backend limpo com boas praticas.",
-  marketing: "Gere copy orientada a conversao."
+  sql: "Escreva queries claras, seguras e otimizadas."
 };
 
 const DEFAULT_MODEL = "deepseek-ai/deepseek-v3.2";
@@ -239,8 +239,8 @@ const TypingDots = memo(function TypingDots() {
 });
 
 export const RuixenMoonChat = memo(function RuixenMoonChat({
-  title = "Central IA",
-  subtitle = "Assistente para dev e marketing digital. Digite sua demanda e execute mais rapido.",
+  title = "DevCod",
+  subtitle = "Copiloto para codigo, debug e arquitetura.",
   contextProfile = "",
   className
 }: RuixenMoonChatProps) {
@@ -346,7 +346,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
     if (!hasServerKey) {
       setHealth({
         status: "missing_key",
-        detail: "NVIDIA_API_KEY ausente no backend publicado.",
+        detail: "Backend sem provedor de IA ativo.",
         model: currentModel
       });
       return;
@@ -667,10 +667,10 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
       <div className="pointer-events-none fixed inset-0 z-[3] bg-[radial-gradient(circle_at_50%_14%,rgba(125,211,252,0.1),rgba(0,0,0,0)_36%)]" />
       <div className="pointer-events-none fixed inset-0 z-[4] bg-black/50" />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))] sm:px-5">
-        <header className="pt-7 text-center sm:pt-10">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-2.5 pb-[max(0.7rem,env(safe-area-inset-bottom))] sm:px-5">
+        <header className="pt-5 text-center sm:pt-9">
           <motion.h1
-            className="text-3xl font-semibold tracking-tight text-white drop-shadow-[0_6px_22px_rgba(0,0,0,0.5)] sm:text-5xl"
+            className="text-[2rem] font-semibold tracking-tight text-white drop-shadow-[0_6px_22px_rgba(0,0,0,0.5)] sm:text-5xl"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
@@ -678,7 +678,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
             {title}
           </motion.h1>
           <motion.p
-            className="mx-auto mt-2 max-w-[680px] text-xs text-blue-100/85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)] sm:text-base"
+            className="mx-auto mt-1.5 max-w-[680px] text-[13px] text-blue-100/85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)] sm:mt-2 sm:text-base"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: 0.06 }}
@@ -686,36 +686,38 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
             {subtitle}
           </motion.p>
           <motion.div
-            className={cn(
-              "mx-auto mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] backdrop-blur-xl sm:text-xs",
-              health.status === "online" &&
-                "border-emerald-300/35 bg-emerald-500/12 text-emerald-100",
-              health.status === "checking" &&
-                "border-cyan-300/30 bg-cyan-400/12 text-cyan-100",
-              health.status === "missing_key" &&
-                "border-amber-300/35 bg-amber-500/14 text-amber-100",
-              health.status === "offline" &&
-                "border-rose-300/35 bg-rose-500/14 text-rose-100"
-            )}
+            className="mx-auto mt-3 flex items-center justify-center"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.12 }}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-current/90" />
-            <span>{health.detail}</span>
             <span className="text-[10px] uppercase tracking-wide text-white/60 sm:text-[11px]">
-              {health.model}
+              <span
+                className={cn(
+                  "block h-3 w-3 rounded-full border shadow-[0_0_18px_rgba(16,185,129,0.55)]",
+                  health.status === "online" &&
+                    "border-emerald-300/70 bg-emerald-400",
+                  health.status === "checking" &&
+                    "border-cyan-300/70 bg-cyan-300",
+                  health.status === "missing_key" &&
+                    "border-amber-300/70 bg-amber-300",
+                  health.status === "offline" &&
+                    "border-rose-300/70 bg-rose-400"
+                )}
+                title={`${health.detail} | modelo: ${health.model}`}
+                aria-label={`Status da IA: ${health.detail}`}
+              />
             </span>
           </motion.div>
         </header>
 
-        <main className="mt-4 flex w-full flex-1 flex-col pb-[calc(env(safe-area-inset-bottom)+0.6rem)] sm:mt-5 sm:pb-[1.1rem]">
-          <div className="mx-auto mt-auto w-full max-w-5xl">
+        <main className="mt-3 flex w-full min-h-0 flex-1 flex-col pb-[calc(env(safe-area-inset-bottom)+0.35rem)] sm:mt-4 sm:pb-[0.9rem]">
+          <div className="mx-auto flex h-full w-full max-w-5xl min-h-0 flex-col justify-end">
             <AnimatePresence initial={false}>
               {messages.length > 0 && (
                 <motion.div
                   ref={messagesRef}
-                  className="mb-3 max-h-[30vh] space-y-3 overflow-y-auto px-1 sm:mb-4 sm:max-h-[35vh]"
+                  className="mb-3 flex-1 min-h-0 space-y-2 overflow-y-auto px-1 sm:mb-4 sm:space-y-3"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
@@ -728,10 +730,10 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.18 }}
                     >
-                      <div className="max-w-[92%] sm:max-w-[84%]">
+                      <div className="max-w-[96%] sm:max-w-[84%]">
                         <div
                           className={cn(
-                            "rounded-2xl border px-3 py-2 text-sm leading-relaxed backdrop-blur-xl",
+                            "whitespace-pre-wrap break-words rounded-2xl border px-3 py-2 text-sm leading-relaxed backdrop-blur-xl",
                             message.role === "user"
                               ? "border-cyan-300/35 bg-cyan-400/14 text-cyan-50"
                               : "border-white/20 bg-white/[0.08] text-slate-100",
@@ -740,7 +742,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                         >
                           {message.pending && !message.content ? <TypingDots /> : message.content}
                         </div>
-                        <p className="mt-1 px-1 text-[11px] text-slate-400">
+                        <p className="mt-1 px-1 text-[10px] text-slate-400 sm:text-[11px]">
                           {message.role === "user" ? "Voce" : "IA"} - {formatTime(message.createdAt)}
                         </p>
                       </div>
@@ -752,7 +754,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
 
             <form
               onSubmit={onSubmit}
-              className="rounded-2xl border border-white/20 bg-black/45 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.58)] backdrop-blur-2xl sm:p-4"
+              className="rounded-[20px] border border-white/20 bg-black/45 p-2.5 shadow-[0_24px_70px_rgba(0,0,0,0.58)] backdrop-blur-2xl sm:rounded-2xl sm:p-4"
             >
               <input
                 ref={fileInputRef}
@@ -769,8 +771,8 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="Descreva sua solicitacao..."
-                className="min-h-[68px] resize-none border-0 bg-transparent px-0 text-sm placeholder:text-slate-400/75 focus-visible:ring-0 sm:min-h-[84px] sm:text-base"
+                placeholder="Cole seu erro, bug ou duvida de codigo..."
+                className="min-h-[58px] resize-none border-0 bg-transparent px-0 text-[16px] placeholder:text-slate-400/75 focus-visible:ring-0 sm:min-h-[84px] sm:text-base"
               />
               {attachments.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -799,7 +801,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="h-10 w-10 rounded-xl border border-white/15 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
+                  className="h-11 w-11 rounded-xl border border-white/15 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
                   aria-label="Anexar arquivo"
                   onClick={openFilePicker}
                 >
@@ -810,7 +812,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                   type="submit"
                   disabled={!canSend}
                   size="icon"
-                  className="h-10 w-10 rounded-xl border border-white/20 bg-gradient-to-r from-blue-500/55 to-violet-500/55 text-white shadow-[0_10px_26px_rgba(58,78,255,0.3)] hover:from-blue-500/70 hover:to-violet-500/70 disabled:opacity-45"
+                  className="h-11 w-11 rounded-xl border border-white/20 bg-gradient-to-r from-blue-500/55 to-violet-500/55 text-white shadow-[0_10px_26px_rgba(58,78,255,0.3)] hover:from-blue-500/70 hover:to-violet-500/70 disabled:opacity-45"
                   aria-label="Enviar mensagem"
                 >
                   <ArrowUp className="h-4 w-4" />

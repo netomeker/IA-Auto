@@ -2,10 +2,10 @@ import { RuixenMoonChat } from "@/components/ui/ruixen-moon-chat";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const PROFILE_CONTEXT = [
-  "Workspace: Desenvolvimento web + marketing para produtos digitais.",
-  "Stack principal: HTML, CSS, JavaScript, React e Node.js.",
-  "Foco do assistente: codigo limpo, debug, performance, copy e funil de venda.",
-  "Estilo de resposta: direto, passo a passo, com acoes praticas."
+  "Workspace: Desenvolvimento de software para web e automacoes.",
+  "Stack principal: HTML, CSS, JavaScript, TypeScript, React e Node.js.",
+  "Foco do assistente: resolver bugs, explicar erros, refatorar, testar e otimizar codigo.",
+  "Estilo de resposta: direto, passo a passo, com exemplos e acoes praticas."
 ].join("\n");
 
 const AUTH_KEY = "central_ia_auth_v1";
@@ -55,8 +55,8 @@ export default function App() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_82%_8%,rgba(167,139,250,0.2),transparent_30%),radial-gradient(circle_at_50%_90%,rgba(34,197,94,0.12),transparent_36%)]" />
         <div className="relative w-full max-w-md rounded-3xl border border-white/15 bg-black/65 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-7">
           <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/85">Acesso privado</p>
-          <h1 className="mt-2 text-2xl font-semibold text-white">Entrar na Central IA</h1>
-          <p className="mt-2 text-sm text-slate-300">Use qualquer nome e a senha de acesso para abrir o sistema.</p>
+          <h1 className="mt-2 text-2xl font-semibold text-white">Entrar no DevCod</h1>
+          <p className="mt-2 text-sm text-slate-300">Use qualquer nome e a senha de acesso para abrir seu copiloto de codigo.</p>
 
           <form className="mt-6 space-y-3" onSubmit={handleLogin}>
             <label className="block text-xs text-slate-300">
@@ -99,8 +99,8 @@ export default function App() {
 
   return (
     <RuixenMoonChat
-      title={`Central IA - ${authenticatedUser}`}
-      subtitle="Especialista em dev e marketing digital. Digite seu pedido e execute mais rapido."
+      title="DevCod"
+      subtitle="Copiloto para codigo, debug e arquitetura."
       contextProfile={contextWithUser}
     />
   );

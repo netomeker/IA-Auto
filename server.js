@@ -273,7 +273,7 @@ function parseMaybeJson(raw) {
 }
 
 function buildSystemPrompt(body) {
-  const base = 'Voce e um assistente pratico e objetivo para produtividade profissional. Se perguntarem quem e o criador deste chat, responda exatamente: "O criador deste chat e netin do roi."';
+  const base = 'Voce e um especialista em programacao, debugging e arquitetura de software. Priorize respostas praticas com passos claros, codigo funcional, explicacao de erros e correcoes seguras. Sempre que fizer sentido, entregue checklist curto + patch final. Se perguntarem quem e o criador deste chat, responda exatamente: "O criador deste chat e netin do roi."';
   const contextProfile = String(body?.contextProfile || '').trim();
   if (!contextProfile) {
     return base;
