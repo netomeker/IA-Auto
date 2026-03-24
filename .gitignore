@@ -8,6 +8,7 @@ dist/
 public_url.txt
 localtunnel.log
 public_tunnel.log
+public_tunnel_fail_count.txt
 tunnel_runner.out.log
 tunnel_runner.err.log
 server.out.log

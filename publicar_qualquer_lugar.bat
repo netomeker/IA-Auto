@@ -12,6 +12,13 @@ if exist public_url.txt (
     echo Link publico:
     echo %PUBLIC_URL%
     start "" "%PUBLIC_URL%"
+
+    echo.
+    echo Sincronizando URL no GitHub Pages...
+    node scripts\sync-github-pages-url.mjs "%PUBLIC_URL%"
+    if errorlevel 1 (
+      echo Falha ao sincronizar no GitHub. O link publico direto ainda funciona.
+    )
   )
 )
 
