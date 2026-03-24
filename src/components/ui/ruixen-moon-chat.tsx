@@ -852,7 +852,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
       <AnimatePresence>
         {isCodeModalOpen && (
           <motion.div
-            className="fixed inset-0 z-30 flex items-end justify-center p-3 sm:items-center sm:p-6"
+            className="fixed inset-0 z-30 flex items-end justify-center p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -864,7 +864,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
               aria-label="Fechar modal"
             />
             <motion.div
-              className="relative z-10 w-full max-w-2xl rounded-2xl border border-white/20 bg-[#060a12]/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.65)] sm:p-5"
+              className="relative z-10 w-full max-w-2xl max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain rounded-2xl border border-white/20 bg-[#060a12]/95 p-3 shadow-[0_24px_80px_rgba(0,0,0,0.65)] sm:max-h-[calc(100vh-3rem)] sm:p-5"
               initial={{ opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -946,7 +946,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
               </div>
 
               <div className="mt-4 rounded-xl border border-white/12 bg-white/[0.03] p-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-slate-300">Tags/tecnologias (busca global)</p>
                   <button
                     type="button"
@@ -978,15 +978,15 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                           setShowTagTutorial(true);
                         }}
                         className={cn(
-                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition",
+                          "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition",
                           selected
                             ? "border-cyan-300/65 bg-cyan-300/18 text-cyan-100"
                             : "border-white/18 bg-white/[0.04] text-slate-200 hover:border-cyan-300/38 hover:bg-cyan-300/10"
                         )}
                       >
                         {selected && <Check className="h-3.5 w-3.5" />}
-                        <span>{tag.label}</span>
-                        <span className="text-[10px] uppercase tracking-wide text-slate-400">{tag.category}</span>
+                        <span className="truncate">{tag.label}</span>
+                        <span className="hidden text-[10px] uppercase tracking-wide text-slate-400 sm:inline">{tag.category}</span>
                       </button>
                     );
                   })}
@@ -999,7 +999,7 @@ export const RuixenMoonChat = memo(function RuixenMoonChat({
                         key={`selected_${tag.key}`}
                         type="button"
                         onClick={() => toggleBuilderTag(tag.key)}
-                        className="rounded-full border border-cyan-300/45 bg-cyan-300/14 px-2.5 py-1 text-[11px] text-cyan-100"
+                        className="max-w-full truncate rounded-full border border-cyan-300/45 bg-cyan-300/14 px-2.5 py-1 text-[11px] text-cyan-100"
                       >
                         {tag.label}
                       </button>

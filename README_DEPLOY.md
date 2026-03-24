@@ -53,6 +53,30 @@ Passos:
    - deve retornar `ok: true`.
    - opcional no terminal: `npm run check:health -- https://seu-site.netlify.app`
 
+### Cloudflare Pages (gratis e sem credito mensal)
+Este projeto agora ja vem com funcoes para Cloudflare em:
+1. `functions/api/health.js`
+2. `functions/api/chat.js`
+
+Passos:
+1. Suba no GitHub.
+2. No Cloudflare, abra **Workers & Pages > Create > Pages > Connect to Git**.
+3. Selecione este repositorio.
+4. Build settings:
+   - Build command: `npm run build`
+   - Build output directory: `dist`
+5. Em **Settings > Variables and Secrets**, adicione:
+   - `NVIDIA_API_KEY = sua_chave_nvidia` (obrigatoria)
+   - opcional: `NVIDIA_MODEL = deepseek-ai/deepseek-v3.2`
+6. Deploy.
+7. Teste:
+   - `https://seu-site.pages.dev/api/health`
+   - Deve retornar `ok: true`.
+
+Observacao:
+1. No Cloudflare Pages, o build agora detecta `CF_PAGES` e usa API no mesmo dominio automaticamente.
+2. Isso evita quebrar o frontend por URL antiga de tunel.
+
 ### Render (recomendado)
 1. Suba este projeto no GitHub.
 2. No Render, crie servico a partir do repositorio (o arquivo `render.yaml` ja esta pronto).

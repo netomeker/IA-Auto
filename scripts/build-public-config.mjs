@@ -108,15 +108,18 @@ function resolveApiBaseUrl() {
       String(process.env.RENDER_SERVICE_ID || "").trim() ||
       String(process.env.RENDER_EXTERNAL_HOSTNAME || "").trim()
   );
+  const onCloudflare = /^(1|true|yes|on)$/i.test(String(process.env.CF_PAGES || process.env.CLOUDFLARE_PAGES || "").trim());
 
-  if (forceSameOrigin || onNetlify || onRender) {
+  if (forceSameOrigin || onNetlify || onRender || onCloudflare) {
     return {
       value: "",
       source: forceSameOrigin
         ? "PUBLIC_API_SAME_ORIGIN"
         : onNetlify
           ? "NETLIFY (mesmo dominio do frontend)"
-          : "RENDER (mesmo dominio do frontend)"
+          : onRender
+            ? "RENDER (mesmo dominio do frontend)"
+            : "CLOUDFLARE PAGES (mesmo dominio do frontend)"
     };
   }
 
