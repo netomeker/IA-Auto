@@ -1,7 +1,7 @@
 type ApiRoute = "/api/health" | "/api/chat" | "/api/chat-stream";
 
 const LAST_API_BASE_KEY = "central_ia_last_api_base";
-const RETRYABLE_STATUS = new Set([401, 403, 404, 405, 502, 503, 504]);
+const RETRYABLE_STATUS = new Set([401, 403, 404, 405, 408, 500, 502, 503, 504]);
 
 function normalizeBase(raw: string) {
   const value = String(raw || "").trim();
