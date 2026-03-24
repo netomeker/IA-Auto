@@ -1,5 +1,7 @@
 @echo off
 cd /d "%~dp0"
+if "%AI_PROVIDER%"=="" set AI_PROVIDER=auto
+if "%LOCAL_MODEL%"=="" set LOCAL_MODEL=gemma3:4b
 echo Iniciando backend + link publico...
 node launch_public.js
 
