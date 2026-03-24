@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: backend-keepalive-b
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   keepalive:

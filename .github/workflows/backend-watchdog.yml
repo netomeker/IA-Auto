@@ -41,8 +41,8 @@ jobs:
             echo "B down"
           fi
 
-      - name: Restart keepalive A when down
-        if: steps.a.outputs.ok != 'true'
+      - name: Restart keepalive A only when both endpoints are down
+        if: steps.a.outputs.ok != 'true' && steps.b.outputs.ok != 'true'
         run: |
           curl -fsS -X POST \
             -H "Authorization: Bearer ${{ github.token }}" \
@@ -51,8 +51,8 @@ jobs:
             "https://api.github.com/repos/$REPO/actions/workflows/backend-keepalive.yml/dispatches" \
             -d "{\"ref\":\"$REF\"}"
 
-      - name: Restart keepalive B when down
-        if: steps.b.outputs.ok != 'true'
+      - name: Restart keepalive B only when both endpoints are down
+        if: steps.b.outputs.ok != 'true' && steps.a.outputs.ok != 'true'
         run: |
           curl -fsS -X POST \
             -H "Authorization: Bearer ${{ github.token }}" \
